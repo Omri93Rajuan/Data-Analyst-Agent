@@ -4,7 +4,7 @@ A Python CLI data analyst agent for the Bitext Customer Service dataset.
 
 Submitted by: Omri Rajuan
 
-The main CLI path is intentionally deterministic: it routes the question with LangGraph, calls pandas-backed tools for factual answers, and prints a clear Thought / Action / Observation trace. This keeps counts and examples grounded in the CSV instead of relying on an LLM to guess. The project also includes an optional LangGraph prebuilt ReAct agent wired to the same tools and Nebius model for the assignment's ReAct requirement.
+The default CLI path is intentionally deterministic: it routes the question with LangGraph, calls pandas-backed tools for factual answers, and prints a clear Thought / Action / Observation trace. This keeps counts and examples grounded in the CSV instead of relying on an LLM to guess. The CLI also supports `--mode react`, which runs a LangGraph prebuilt ReAct agent wired to the same tools and Nebius model, with automatic fallback to the deterministic graph if the API key is unavailable.
 
 ## Setup
 
@@ -34,7 +34,10 @@ flags, instruction, category, intent, response
 python main.py
 python main.py --session demo
 python main.py --session demo --user alice
+python main.py --mode react --session demo --user alice
 ```
+
+Use `--mode deterministic` for the reliable pandas-first path. Use `--mode react` to run the LLM-driven LangGraph ReAct agent. React mode requires `NEBIUS_API_KEY`; if the key is missing or the model call fails, the CLI prints the fallback reason and answers through the deterministic graph.
 
 Example questions:
 
@@ -126,14 +129,19 @@ After connecting a compatible MCP client, call a tool such as `get_categories` o
 
 ```text
 main.py
-  -> src.graph.build_graph()
+  -> --mode deterministic: src.graph.build_graph()
       -> router_node
       -> structured_node | unstructured_node | profile_node | out_of_scope_node
       -> profile_update_node
       -> LangGraph SqliteSaver checkpoint
+  -> --mode react: src.react_agent.run_react_agent()
+      -> LangGraph prebuilt ReAct agent
+      -> Nebius ChatOpenAI model
+      -> same Pydantic-described dataset tools
+      -> deterministic graph fallback
 
 src.react_agent
-  -> optional LangGraph prebuilt ReAct agent path
+  -> LangGraph prebuilt ReAct agent path
   -> Nebius ChatOpenAI model
   -> same deterministic tools from TOOL_REGISTRY
 
@@ -160,7 +168,7 @@ The configured Nebius Token Factory model is `meta-llama/Llama-3.3-70B-Instruct`
 
 The default CLI does not use the LLM for factual dataset answers. That is a deliberate design choice: counts, distributions, and examples should come from deterministic pandas tools. The CLI still exposes the agent's reasoning path by printing Thought / Action / Observation steps for each supported query.
 
-For a true LLM-driven ReAct path, `src.react_agent.build_react_agent()` builds a LangGraph prebuilt ReAct agent with the same Pydantic-described tools and the Nebius model. This keeps the ReAct implementation available without making the reliable CLI path depend on API availability.
+For a true LLM-driven ReAct path, run `python main.py --mode react`. This uses `src.react_agent.build_react_agent()`, a LangGraph prebuilt ReAct agent with the same Pydantic-described tools and the Nebius model. If the Nebius key is unavailable, the CLI falls back to the deterministic graph so the project remains runnable for graders.
 
 ## Tools List
 
@@ -178,7 +186,7 @@ Each public tool has a docstring, typed return value, deterministic pandas logic
 
 ## Limitations
 
-- The default CLI uses deterministic tool selection, while the optional ReAct agent path is available in `src.react_agent`.
+- The default CLI uses deterministic tool selection, while `--mode react` runs the LLM ReAct agent.
 - Routing is rule-based and intentionally conservative in the default path.
 - Only supported dataset question patterns are answered.
 - Unsupported queries are declined clearly instead of guessed.

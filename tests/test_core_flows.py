@@ -65,3 +65,33 @@ def test_optional_react_agent_module_imports() -> None:
     from src.react_agent import build_react_agent
 
     assert callable(build_react_agent)
+
+
+def test_react_result_formatter_extracts_tool_trace() -> None:
+    from langchain_core.messages import AIMessage, ToolMessage
+
+    from src.react_agent import format_react_result
+
+    result = format_react_result(
+        {
+            "messages": [
+                AIMessage(
+                    content="I should count refund rows.",
+                    tool_calls=[
+                        {
+                            "name": "count_rows",
+                            "args": {"category": "REFUND"},
+                            "id": "call_1",
+                        }
+                    ],
+                ),
+                ToolMessage(content="2992", tool_call_id="call_1"),
+                AIMessage(content="There are 2992 refund rows."),
+            ]
+        }
+    )
+
+    assert result["answer"] == "There are 2992 refund rows."
+    assert result["selected_tool"] == "count_rows"
+    assert any("Action: count_rows" in step for step in result["reasoning_steps"])
+    assert "2992" in result["observations"][0]

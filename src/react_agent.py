@@ -1,5 +1,6 @@
 from typing import Any
 
+from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 from langchain_core.tools import StructuredTool
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
@@ -46,10 +47,83 @@ def build_react_agent():
     )
 
 
-def run_react_agent(question: str, recursion_limit: int = 10) -> dict[str, Any]:
+def _message_text(message: BaseMessage) -> str:
+    """Return readable text from a LangChain message."""
+    content = message.content
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return " ".join(str(item) for item in content)
+    return str(content)
+
+
+def format_react_result(result: dict[str, Any]) -> dict[str, Any]:
+    """Convert a LangGraph ReAct result into CLI-friendly reasoning output."""
+    messages = result.get("messages", [])
+    reasoning_steps: list[str] = []
+    observations: list[str] = []
+    selected_tool = "react_agent"
+    answer = "I could not produce an answer for that query."
+
+    for message in messages:
+        if isinstance(message, AIMessage) and message.tool_calls:
+            thought = _message_text(message).strip()
+            if thought:
+                reasoning_steps.append(f"Thought: {thought}")
+            else:
+                reasoning_steps.append("Thought: choose the next dataset tool to call.")
+
+            for tool_call in message.tool_calls:
+                selected_tool = tool_call["name"]
+                reasoning_steps.append(
+                    f"Action: {tool_call['name']}({tool_call.get('args', {})})"
+                )
+
+        elif isinstance(message, ToolMessage):
+            observation = _message_text(message)
+            observations.append(observation)
+            reasoning_steps.append(f"Observation: {observation}")
+
+        elif isinstance(message, AIMessage):
+            text = _message_text(message).strip()
+            if text:
+                answer = text
+
+    return {
+        "answer": answer,
+        "selected_tool": selected_tool,
+        "observations": observations,
+        "reasoning_steps": reasoning_steps,
+    }
+
+
+def _history_to_messages(history: list[dict[str, Any]] | None) -> list[tuple[str, str]]:
+    """Convert saved JSON history to LangChain chat tuples."""
+    messages: list[tuple[str, str]] = []
+    for message in history or []:
+        role = message.get("role")
+        content = message.get("content", "")
+        if role in {"user", "assistant"}:
+            messages.append((role, content))
+    return messages
+
+
+def run_react_agent(
+    question: str,
+    history: list[dict[str, Any]] | None = None,
+    recursion_limit: int = 10,
+    thread_id: str | None = None,
+) -> dict[str, Any]:
     """Run the optional LLM ReAct agent for one question."""
     agent = build_react_agent()
-    return agent.invoke(
-        {"messages": [("user", question)]},
-        config={"recursion_limit": recursion_limit},
+    messages = _history_to_messages(history)
+    messages.append(("user", question))
+    config: dict[str, Any] = {"recursion_limit": recursion_limit}
+    if thread_id:
+        config["configurable"] = {"thread_id": thread_id}
+
+    result = agent.invoke(
+        {"messages": messages},
+        config=config,
     )
+    return format_react_result(result)
