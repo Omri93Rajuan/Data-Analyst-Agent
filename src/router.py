@@ -20,6 +20,7 @@ def route_query(question: str) -> QueryType:
         "invoice", "payment", "feedback", "delivery",
         "subscription", "cancel", "complaint",
         "examples", "dataset", "customer", "response",
+        "more",
     ]
 
     structured_words = [
