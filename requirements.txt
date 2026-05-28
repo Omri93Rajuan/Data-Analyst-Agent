@@ -7,3 +7,4 @@ langgraph
 langgraph-checkpoint-sqlite
 fastmcp
 rich
+pytest
