@@ -1,5 +1,5 @@
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from src.memory import get_last_two_answer_counts, get_last_user_topic, load_user_profile
@@ -23,6 +23,7 @@ class QueryResult:
     answer: str
     selected_tool: str
     observations: list[str]
+    reasoning_steps: list[str] = field(default_factory=list)
 
 
 def _format_examples(examples: list[dict[str, Any]]) -> str:
@@ -159,6 +160,11 @@ def analyze_structured_query(
             answer=f"The total count of the last two count answers is {total}.",
             selected_tool="session_history",
             observations=[f"Added counts {counts[0]} and {counts[1]}."],
+            reasoning_steps=[
+                "Thought: this follow-up asks for arithmetic over previous observations.",
+                "Action: read the last two count answers from session history.",
+                f"Observation: found counts {counts[0]} and {counts[1]}.",
+            ],
         )
 
     if "more" in q and history:
@@ -171,6 +177,12 @@ def analyze_structured_query(
                 answer=f"Here are {limit} more examples from {category}:\n\n{_format_examples(examples)}",
                 selected_tool="show_examples",
                 observations=[f"category={category}", f"limit={limit}", f"offset={offset}"],
+                reasoning_steps=[
+                    "Thought: this is a follow-up, so reuse the previous dataset topic.",
+                    f"Action: infer category={category} from session history.",
+                    f"Action: call show_examples(category={category}, limit={limit}, offset={offset}).",
+                    f"Observation: returned {len(examples)} examples.",
+                ],
             )
 
     if "what categories" in q or "categories exist" in q or "list categories" in q:
@@ -179,6 +191,11 @@ def analyze_structured_query(
             answer="Categories in the dataset:\n\n" + "\n".join(f"- {c}" for c in categories),
             selected_tool="list_categories",
             observations=[f"Found {len(categories)} categories."],
+            reasoning_steps=[
+                "Thought: the user asks for available dataset categories.",
+                "Action: call list_categories().",
+                f"Observation: found {len(categories)} categories.",
+            ],
         )
 
     if "category distribution" in q or ("distribution" in q and "categor" in q):
@@ -188,6 +205,11 @@ def analyze_structured_query(
             + "\n".join(f"- {name}: {count}" for name, count in distribution.items()),
             selected_tool="category_distribution",
             observations=[f"Summarized {len(distribution)} categories."],
+            reasoning_steps=[
+                "Thought: the user asks for counts grouped by category.",
+                "Action: call category_distribution().",
+                f"Observation: summarized {len(distribution)} categories.",
+            ],
         )
 
     if "top intent" in q or "most common intent" in q:
@@ -198,6 +220,11 @@ def analyze_structured_query(
             + "\n".join(f"- {intent}: {count}" for intent, count in distribution.items()),
             selected_tool="top_intents",
             observations=[f"limit={limit}"],
+            reasoning_steps=[
+                "Thought: the user asks for the most frequent intents.",
+                f"Action: call top_intents(limit={limit}).",
+                f"Observation: returned {len(distribution)} intents.",
+            ],
         )
 
     if "compare" in q and category:
@@ -213,6 +240,11 @@ def analyze_structured_query(
                 answer="Category comparison:\n\n" + "\n".join(lines),
                 selected_tool="compare_categories",
                 observations=[f"categories={mentioned[0]}, {mentioned[1]}"],
+                reasoning_steps=[
+                    "Thought: the user asks to compare two dataset categories.",
+                    f"Action: call compare_categories({mentioned[0]}, {mentioned[1]}).",
+                    "Observation: received row counts and intent distributions for both categories.",
+                ],
             )
 
     if "intent" in q and "distribution" in q and category:
@@ -222,6 +254,11 @@ def analyze_structured_query(
             + "\n".join(f"- {intent}: {count}" for intent, count in distribution.items()),
             selected_tool="intent_distribution",
             observations=[f"category={category}", f"Found {len(distribution)} intents."],
+            reasoning_steps=[
+                f"Thought: the user asks for intent distribution inside {category}.",
+                f"Action: call intent_distribution(category={category}).",
+                f"Observation: found {len(distribution)} intents.",
+            ],
         )
 
     if "intent" in q and category:
@@ -230,6 +267,11 @@ def analyze_structured_query(
             answer=f"{category} intents:\n\n" + "\n".join(f"- {intent}" for intent in intents),
             selected_tool="list_intents",
             observations=[f"category={category}", f"Found {len(intents)} intents."],
+            reasoning_steps=[
+                f"Thought: the user asks which intents exist in {category}.",
+                f"Action: call list_intents(category={category}).",
+                f"Observation: found {len(intents)} intents.",
+            ],
         )
 
     if "complaint" in q and ("how many" in q or "count" in q):
@@ -238,6 +280,11 @@ def analyze_structured_query(
             answer=f"There are {row_count} complaint rows in the dataset.",
             selected_tool="count_rows",
             observations=["intent=complaint"],
+            reasoning_steps=[
+                "Thought: complaints are represented by the complaint intent.",
+                "Action: call count_rows(intent=complaint).",
+                f"Observation: count_rows returned {row_count}.",
+            ],
         )
 
     if category and ("how many" in q or "count" in q or q.strip().startswith("what about")):
@@ -246,6 +293,11 @@ def analyze_structured_query(
             answer=f"There are {row_count} {category} rows in the dataset.",
             selected_tool="count_rows",
             observations=[f"category={category}"],
+            reasoning_steps=[
+                f"Thought: resolve the question topic to category={category}.",
+                f"Action: call count_rows(category={category}).",
+                f"Observation: count_rows returned {row_count}.",
+            ],
         )
 
     if category and "example" in q:
@@ -254,6 +306,11 @@ def analyze_structured_query(
             answer=f"Here are {limit} {category} examples:\n\n{_format_examples(examples)}",
             selected_tool="show_examples",
             observations=[f"category={category}", f"limit={limit}"],
+            reasoning_steps=[
+                f"Thought: the user asks for examples from category={category}.",
+                f"Action: call show_examples(category={category}, limit={limit}).",
+                f"Observation: returned {len(examples)} examples.",
+            ],
         )
 
     if "money back" in q or "wanting their money back" in q:
@@ -262,6 +319,11 @@ def analyze_structured_query(
             answer=f"Examples of customers wanting their money back:\n\n{_format_examples(examples)}",
             selected_tool="search_instructions",
             observations=[f"query=refund", f"limit={limit}"],
+            reasoning_steps=[
+                "Thought: 'money back' maps to refund language in the dataset.",
+                f"Action: call search_instructions(query=refund, limit={limit}).",
+                f"Observation: returned {len(examples)} matching rows.",
+            ],
         )
 
     return QueryResult(
@@ -289,6 +351,11 @@ def analyze_unstructured_query(question: str) -> QueryResult:
             ),
             selected_tool="show_examples",
             observations=["category=FEEDBACK", "limit=10"],
+            reasoning_steps=[
+                "Thought: summarize FEEDBACK using representative dataset rows.",
+                "Action: call show_examples(category=FEEDBACK, limit=10).",
+                f"Observation: reviewed {len(examples)} examples before summarizing.",
+            ],
         )
 
     if "complaint" in q:
@@ -302,6 +369,11 @@ def analyze_unstructured_query(question: str) -> QueryResult:
             ),
             selected_tool="show_examples",
             observations=["intent=complaint", "limit=10"],
+            reasoning_steps=[
+                "Thought: summarize complaint behavior from rows with intent=complaint.",
+                "Action: call show_examples(intent=complaint, limit=10).",
+                f"Observation: reviewed {len(examples)} examples before summarizing.",
+            ],
         )
 
     if "cancellation" in q or "cancel" in q:
@@ -315,6 +387,11 @@ def analyze_unstructured_query(question: str) -> QueryResult:
             ),
             selected_tool="search_instructions",
             observations=["query=cancel", "limit=10"],
+            reasoning_steps=[
+                "Thought: cancellation wording can appear across category and intent fields.",
+                "Action: call search_instructions(query=cancel, limit=10).",
+                f"Observation: reviewed {len(examples)} matches before summarizing.",
+            ],
         )
 
     return QueryResult(

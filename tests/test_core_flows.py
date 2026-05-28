@@ -34,6 +34,16 @@ def test_handle_structured_refund_count() -> None:
     assert "2992" in answer
 
 
+def test_structured_result_includes_react_trace() -> None:
+    from src.query_handler import analyze_structured_query
+
+    result = analyze_structured_query("How many refund requests did we get?", [])
+
+    assert any("Thought:" in step for step in result.reasoning_steps)
+    assert any("Action:" in step for step in result.reasoning_steps)
+    assert any("Observation:" in step for step in result.reasoning_steps)
+
+
 def test_memory_save_load_roundtrip(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr("src.memory.SESSION_DIR", tmp_path)
     messages = [{"role": "user", "content": "hello"}]
@@ -49,3 +59,9 @@ def test_graph_uses_sqlite_checkpointer() -> None:
     graph = build_graph()
 
     assert graph.checkpointer is not None
+
+
+def test_optional_react_agent_module_imports() -> None:
+    from src.react_agent import build_react_agent
+
+    assert callable(build_react_agent)

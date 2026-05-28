@@ -46,22 +46,28 @@ def structured_node(state: AgentState) -> AgentState:
         history=state.get("history", []),
         user_id=state.get("user_id"),
     )
+    reasoning_steps = list(state.get("reasoning_steps", []))
+    reasoning_steps.extend(result.reasoning_steps)
+    reasoning_steps.append(f"selected handler/tool: {result.selected_tool}")
     return {
         "answer": result.answer,
         "selected_tool": result.selected_tool,
         "observations": result.observations,
-        "reasoning_steps": _append_step(state, f"selected handler/tool: {result.selected_tool}"),
+        "reasoning_steps": reasoning_steps,
     }
 
 
 def unstructured_node(state: AgentState) -> AgentState:
     """Handle supported summary-style dataset questions."""
     result = analyze_unstructured_query(state["question"])
+    reasoning_steps = list(state.get("reasoning_steps", []))
+    reasoning_steps.extend(result.reasoning_steps)
+    reasoning_steps.append(f"selected handler/tool: {result.selected_tool}")
     return {
         "answer": result.answer,
         "selected_tool": result.selected_tool,
         "observations": result.observations,
-        "reasoning_steps": _append_step(state, f"selected handler/tool: {result.selected_tool}"),
+        "reasoning_steps": reasoning_steps,
     }
 
 

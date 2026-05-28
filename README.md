@@ -48,6 +48,7 @@ What do you remember about me?
 The CLI prints:
 
 - router decision
+- Thought / Action / Observation reasoning steps
 - selected handler/tool
 - observations
 - final answer
@@ -127,8 +128,14 @@ main.py
       -> profile_update_node
       -> LangGraph SqliteSaver checkpoint
 
+src.react_agent
+  -> optional LangGraph prebuilt ReAct agent
+  -> Nebius ChatOpenAI model
+  -> same deterministic tools from TOOL_REGISTRY
+
 src.query_handler
-  -> deterministic pattern handlers
+  -> deterministic ReAct-style pattern handlers
+  -> prints Thought / Action / Observation traces
   -> calls src.tools
 
 src.tools
@@ -145,7 +152,7 @@ src.mcp_server
 
 ## Model Choice
 
-The configured Nebius Token Factory model is `meta-llama/Llama-3.3-70B-Instruct` in `src/config.py`. The final workflow does not call the model for factual dataset answers; it uses deterministic pandas tools instead to avoid hallucinated counts or unsupported claims. LangGraph provides the workflow orchestration, routing, checkpointing, and recursion controls.
+The configured Nebius Token Factory model is `meta-llama/Llama-3.3-70B-Instruct` in `src/config.py`. The main CLI uses deterministic ReAct-style tool execution for factual correctness and prints each Thought / Action / Observation step. The project also includes `src.react_agent.build_react_agent()`, a LangGraph prebuilt ReAct agent using the same Pydantic-described tools and the Nebius model. LangGraph provides workflow orchestration, routing, checkpointing, and recursion controls.
 
 ## Tools List
 
