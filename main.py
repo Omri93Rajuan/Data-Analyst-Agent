@@ -58,7 +58,10 @@ def main() -> None:
                     "history": history,
                     "reasoning_steps": [],
                 },
-                config={"recursion_limit": 10},
+                config={
+                    "recursion_limit": 10,
+                    "configurable": {"thread_id": session_id},
+                },
             )
         except Exception as exc:
             print(f"Agent: Sorry, I could not process that query: {exc}\n")

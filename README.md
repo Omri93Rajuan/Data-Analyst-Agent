@@ -1,6 +1,6 @@
 # Bitext Customer Service Data Analyst Agent
 
-Python CLI data analyst agent for the Bitext Customer Service dataset. It uses deterministic pandas tools for factual answers, a LangGraph workflow for routing, JSON memory for sessions and user profiles, and a FastMCP server for external tool access.
+Python CLI data analyst agent for the Bitext Customer Service dataset. It uses deterministic pandas tools for factual answers, a LangGraph workflow for routing, persistent LangGraph SQLite checkpoints, JSON session/profile memory, and a FastMCP server for external tool access.
 
 ## Setup
 
@@ -57,9 +57,12 @@ The CLI prints:
 Session chat history is stored separately from user profile facts.
 
 ```text
+memory/checkpoints.sqlite
 memory/sessions/<session_id>.json
 memory/profiles/<user_id>.json
 ```
+
+LangGraph state is persisted with `SqliteSaver` in `memory/checkpoints.sqlite`. The JSON files keep beginner-readable conversation history and distilled user profile facts.
 
 The profile stores distilled facts only:
 
@@ -98,14 +101,31 @@ Exposed MCP tools return structured data:
 - `show_examples_tool`
 - `intent_distribution_tool`
 
+Example MCP client configuration:
+
+```json
+{
+  "mcpServers": {
+    "bitext-customer-service": {
+      "command": "python",
+      "args": ["-m", "src.mcp_server"],
+      "cwd": "/absolute/path/to/agents"
+    }
+  }
+}
+```
+
+After connecting a compatible MCP client, call a tool such as `get_categories` or `count_rows_tool`. Tool responses are JSON-like structured data, not natural-language summaries.
+
 ## Architecture
 
 ```text
 main.py
   -> src.graph.build_graph()
       -> router_node
-      -> structured_node | unstructured_node | out_of_scope_node
+      -> structured_node | unstructured_node | profile_node | out_of_scope_node
       -> profile_update_node
+      -> LangGraph SqliteSaver checkpoint
 
 src.query_handler
   -> deterministic pattern handlers
@@ -125,7 +145,7 @@ src.mcp_server
 
 ## Model Choice
 
-The final workflow does not require an LLM for factual dataset answers. This is intentional: assignment questions are best answered by deterministic pandas tools to avoid hallucinated counts or unsupported claims. The project keeps `langchain` and `langgraph` dependencies because LangGraph provides the workflow orchestration, routing, and recursion controls.
+The configured Nebius Token Factory model is `meta-llama/Llama-3.3-70B-Instruct` in `src/config.py`. The final workflow does not call the model for factual dataset answers; it uses deterministic pandas tools instead to avoid hallucinated counts or unsupported claims. LangGraph provides the workflow orchestration, routing, checkpointing, and recursion controls.
 
 ## Tools List
 

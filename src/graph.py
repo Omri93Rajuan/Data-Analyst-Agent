@@ -1,5 +1,8 @@
+import sqlite3
+from pathlib import Path
 from typing import Any, TypedDict
 
+from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, StateGraph
 
 from src.memory import load_user_profile, update_user_profile_from_turn
@@ -147,6 +150,11 @@ def _route_after_router(state: AgentState) -> str:
 
 def build_graph():
     """Build and compile the LangGraph workflow."""
+    checkpoint_path = Path("memory/checkpoints.sqlite")
+    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(checkpoint_path, check_same_thread=False)
+    checkpointer = SqliteSaver(conn)
+
     workflow = StateGraph(AgentState)
 
     workflow.add_node("router_node", router_node)
@@ -173,4 +181,4 @@ def build_graph():
     workflow.add_edge("profile_node", "profile_update_node")
     workflow.add_edge("profile_update_node", END)
 
-    return workflow.compile()
+    return workflow.compile(checkpointer=checkpointer)

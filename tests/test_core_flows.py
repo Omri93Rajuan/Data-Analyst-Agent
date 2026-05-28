@@ -41,3 +41,11 @@ def test_memory_save_load_roundtrip(tmp_path, monkeypatch) -> None:
     save_session("pytest-session", messages)
 
     assert load_session("pytest-session") == messages
+
+
+def test_graph_uses_sqlite_checkpointer() -> None:
+    from src.graph import build_graph
+
+    graph = build_graph()
+
+    assert graph.checkpointer is not None
