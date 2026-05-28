@@ -1,6 +1,8 @@
 # Bitext Customer Service Data Analyst Agent
 
-Python CLI data analyst agent for the Bitext Customer Service dataset. It uses deterministic pandas tools for factual answers, a LangGraph workflow for routing, persistent LangGraph SQLite checkpoints, JSON session/profile memory, and a FastMCP server for external tool access.
+A Python CLI data analyst agent for the Bitext Customer Service dataset.
+
+The main CLI path is intentionally deterministic: it routes the question with LangGraph, calls pandas-backed tools for factual answers, and prints a clear Thought / Action / Observation trace. This keeps counts and examples grounded in the CSV instead of relying on an LLM to guess. The project also includes an optional LangGraph prebuilt ReAct agent wired to the same tools and Nebius model for the assignment's ReAct requirement.
 
 ## Setup
 
@@ -45,7 +47,7 @@ Summarize complaint responses.
 What do you remember about me?
 ```
 
-The CLI prints:
+For each turn, the CLI prints:
 
 - router decision
 - Thought / Action / Observation reasoning steps
@@ -55,7 +57,7 @@ The CLI prints:
 
 ## Memory
 
-Session chat history is stored separately from user profile facts.
+Session chat history is stored separately from user profile facts:
 
 ```text
 memory/checkpoints.sqlite
@@ -63,7 +65,7 @@ memory/sessions/<session_id>.json
 memory/profiles/<user_id>.json
 ```
 
-LangGraph state is persisted with `SqliteSaver` in `memory/checkpoints.sqlite`. The JSON files keep beginner-readable conversation history and distilled user profile facts.
+LangGraph state is persisted with `SqliteSaver` in `memory/checkpoints.sqlite`. The JSON files are kept as a simple, inspectable layer for conversation history and distilled user profile facts.
 
 The profile stores distilled facts only:
 
@@ -116,7 +118,7 @@ Example MCP client configuration:
 }
 ```
 
-After connecting a compatible MCP client, call a tool such as `get_categories` or `count_rows_tool`. Tool responses are JSON-like structured data, not natural-language summaries.
+After connecting a compatible MCP client, call a tool such as `get_categories` or `count_rows_tool`. Tool responses are structured data, not natural-language summaries.
 
 ## Architecture
 
@@ -129,12 +131,12 @@ main.py
       -> LangGraph SqliteSaver checkpoint
 
 src.react_agent
-  -> optional LangGraph prebuilt ReAct agent
+  -> optional LangGraph prebuilt ReAct agent path
   -> Nebius ChatOpenAI model
   -> same deterministic tools from TOOL_REGISTRY
 
 src.query_handler
-  -> deterministic ReAct-style pattern handlers
+  -> deterministic handlers used by the default CLI path
   -> prints Thought / Action / Observation traces
   -> calls src.tools
 
@@ -152,7 +154,11 @@ src.mcp_server
 
 ## Model Choice
 
-The configured Nebius Token Factory model is `meta-llama/Llama-3.3-70B-Instruct` in `src/config.py`. The main CLI uses deterministic ReAct-style tool execution for factual correctness and prints each Thought / Action / Observation step. The project also includes `src.react_agent.build_react_agent()`, a LangGraph prebuilt ReAct agent using the same Pydantic-described tools and the Nebius model. LangGraph provides workflow orchestration, routing, checkpointing, and recursion controls.
+The configured Nebius Token Factory model is `meta-llama/Llama-3.3-70B-Instruct` in `src/config.py`.
+
+The default CLI does not use the LLM for factual dataset answers. That is a deliberate design choice: counts, distributions, and examples should come from deterministic pandas tools. The CLI still exposes the agent's reasoning path by printing Thought / Action / Observation steps for each supported query.
+
+For a true LLM-driven ReAct path, `src.react_agent.build_react_agent()` builds a LangGraph prebuilt ReAct agent with the same Pydantic-described tools and the Nebius model. This keeps the ReAct implementation available without making the reliable CLI path depend on API availability.
 
 ## Tools List
 
@@ -170,7 +176,8 @@ Each public tool has a docstring, typed return value, deterministic pandas logic
 
 ## Limitations
 
-- Routing is rule-based and intentionally conservative.
+- The default CLI uses deterministic tool selection, while the optional ReAct agent path is available in `src.react_agent`.
+- Routing is rule-based and intentionally conservative in the default path.
 - Only supported dataset question patterns are answered.
 - Unsupported queries are declined clearly instead of guessed.
 - Follow-up reasoning uses recent session history and known dataset topics, not semantic search.
