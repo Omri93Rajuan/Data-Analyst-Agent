@@ -1,3 +1,5 @@
+from src.memory import get_last_user_topic
+
 from src.tools import (
     count_rows,
     intent_distribution,
@@ -28,10 +30,20 @@ def _extract_limit(question: str, default: int = 3) -> int:
     return default
 
 
-def handle_structured_query(question: str) -> str:
+def handle_structured_query(question: str, history: list[dict] | None = None) -> str:
     q = question.lower()
     limit = _extract_limit(question)
+    if "more" in q and history:
+        last_topic = get_last_user_topic(history)
 
+        if last_topic:
+            category = last_topic["category"]
+            examples = show_examples(category=category, limit=limit)
+            return (
+                f"Here are {limit} more examples from {category}:\n\n"
+                f"{_format_examples(examples)}"
+            )
+        
     if "what categories" in q or "categories exist" in q or "list categories" in q:
         categories = list_categories()
         return "Categories in the dataset:\n\n" + "\n".join(f"- {c}" for c in categories)

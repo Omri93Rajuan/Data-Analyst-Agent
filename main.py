@@ -73,7 +73,7 @@ def main() -> None:
             == QueryType.STRUCTURED
         ):
             answer = handle_structured_query(
-                question
+                question, history
             )
 
         else:

@@ -36,3 +36,34 @@ def save_session(
             file,
             indent=2,
         )
+        
+def get_last_user_topic(history: list[dict]) -> dict | None:
+    """
+    Extract the last remembered dataset topic from conversation history.
+    """
+    for message in reversed(history):
+        if message["role"] != "user":
+            continue
+
+        text = message["content"].lower()
+
+        for category in [
+            "refund",
+            "shipping",
+            "account",
+            "order",
+            "invoice",
+            "payment",
+            "feedback",
+            "delivery",
+            "subscription",
+            "cancel",
+            "contact",
+        ]:
+            if category in text:
+                return {
+                    "category": category.upper(),
+                    "question": message["content"],
+                }
+
+    return None
