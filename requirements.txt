@@ -2,7 +2,6 @@ pandas
 python-dotenv
 pydantic
 langchain
-langchain-core
 langchain-openai
 langgraph
 langgraph-checkpoint-sqlite
