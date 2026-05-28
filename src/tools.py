@@ -22,8 +22,14 @@ class ListIntentsInput(BaseModel):
 class CountRowsInput(BaseModel):
     """Input schema for count_rows."""
 
-    category: str | None = Field(default=None, description="Optional category filter.")
-    intent: str | None = Field(default=None, description="Optional intent filter.")
+    category: str | None = Field(
+        default=None,
+        description="Optional exact category filter, for example REFUND, SHIPPING, ACCOUNT.",
+    )
+    intent: str | None = Field(
+        default=None,
+        description="Optional exact intent filter, for example complaint, get_refund, edit_account. Do not invent broad intents like REQUEST.",
+    )
 
 
 class ShowExamplesInput(BaseModel):
@@ -215,7 +221,7 @@ TOOL_REGISTRY: dict[str, ToolRegistryEntry] = {
     "count_rows": {
         "function": count_rows,
         "schema": CountRowsInput,
-        "description": "Count dataset rows, optionally filtered by category and/or intent.",
+        "description": "Count dataset rows with optional exact category and/or exact intent filters. Use category=REFUND for broad questions like refund requests.",
     },
     "show_examples": {
         "function": show_examples,
