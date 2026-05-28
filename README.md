@@ -1,6 +1,8 @@
-# Bitext Customer Service Data Analyst Agent
+# Bitext Customer Service Data Analyst Agent - Omri Rajuan
 
 A Python CLI data analyst agent for the Bitext Customer Service dataset.
+
+Submitted by: Omri Rajuan
 
 The main CLI path is intentionally deterministic: it routes the question with LangGraph, calls pandas-backed tools for factual answers, and prints a clear Thought / Action / Observation trace. This keeps counts and examples grounded in the CSV instead of relying on an LLM to guess. The project also includes an optional LangGraph prebuilt ReAct agent wired to the same tools and Nebius model for the assignment's ReAct requirement.
 
